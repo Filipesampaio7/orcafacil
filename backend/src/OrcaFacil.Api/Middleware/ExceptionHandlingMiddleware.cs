@@ -41,6 +41,7 @@ public class ExceptionHandlingMiddleware
         {
             ConflictException => (HttpStatusCode.Conflict, exception.Message),
             InvalidCredentialsException => (HttpStatusCode.Unauthorized, exception.Message),
+            NotFoundException => (HttpStatusCode.NotFound, exception.Message),
             // Nunca vazamos a mensagem de exceções desconhecidas para o
             // cliente — poderia expor detalhes internos (stack, nomes de
             // tabela). O detalhe completo já foi para o log acima.

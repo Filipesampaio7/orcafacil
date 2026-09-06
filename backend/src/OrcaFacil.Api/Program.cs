@@ -5,9 +5,13 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OrcaFacil.Api.Middleware;
+using OrcaFacil.Application.DTOs.Customers;
+using OrcaFacil.Application.DTOs.Services;
 using OrcaFacil.Application.Interfaces;
 using OrcaFacil.Application.Services;
 using OrcaFacil.Application.Validators.Auth;
+using OrcaFacil.Application.Validators.Customers;
+using OrcaFacil.Application.Validators.Services;
 using FluentValidation;
 using OrcaFacil.Application.DTOs.Auth;
 using OrcaFacil.Infrastructure.Authentication;
@@ -42,16 +46,24 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 
 // Autenticação: hashing de senha, geração/leitura de JWT.
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
 
 // Validadores do FluentValidation, injetáveis diretamente nos controllers.
 builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();
 builder.Services.AddScoped<IValidator<LoginRequestDto>, LoginRequestValidator>();
+builder.Services.AddScoped<IValidator<CreateCustomerDto>, CreateCustomerValidator>();
+builder.Services.AddScoped<IValidator<UpdateCustomerDto>, UpdateCustomerValidator>();
+builder.Services.AddScoped<IValidator<CreateServiceDto>, CreateServiceValidator>();
+builder.Services.AddScoped<IValidator<UpdateServiceDto>, UpdateServiceValidator>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

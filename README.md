@@ -60,7 +60,7 @@ só rotas públicas precisam do `[AllowAnonymous]` explícito.
    voltar `401 Unauthorized`. Isso confirma que a proteção de rota está
    funcionando.
 
-### O que ficou de fora de propósito
+### O que ficou de fora de propósito (FASE 3)
 
 - **Recuperação de senha** ("esqueci minha senha") — só a interface
   `IEmailSender` foi preparada (sem implementação). Você pediu para deixar
@@ -69,6 +69,61 @@ só rotas públicas precisam do `[AllowAnonymous]` explícito.
   (configurável em `Jwt:ExpirationMinutes`) e não pode ser revogado antes
   disso. Para um MVP isso é aceitável; para produção real, vale considerar
   refresh tokens mais adiante.
+
+## FASE 4 e 5 — Clientes e Serviços
+
+Nenhuma migration nova é necessária além da `InitialCreate` que você já
+aplicou — as tabelas `Customers` e `Services` já foram criadas na FASE 2,
+junto com todo o resto do modelo. Se você não tiver mais o banco (ex.:
+apagou o arquivo `.db`), gere de novo com os mesmos comandos da FASE 2.
+
+Dois CRUDs completos, ambos seguindo o mesmo padrão:
+
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/api/customers?search=` | Lista clientes da empresa autenticada, com busca opcional por nome/telefone/e-mail/documento |
+| GET | `/api/customers/{id}` | Um cliente específico |
+| POST | `/api/customers` | Cria cliente |
+| PUT | `/api/customers/{id}` | Atualiza cliente |
+| DELETE | `/api/customers/{id}` | Remove cliente |
+| GET | `/api/services?search=&category=&status=` | Lista serviços da empresa, com filtros opcionais |
+| GET | `/api/services/{id}` | Um serviço específico |
+| POST | `/api/services` | Cria serviço |
+| PUT | `/api/services/{id}` | Atualiza serviço (inclui status) |
+| DELETE | `/api/services/{id}` | Remove serviço |
+
+Todas as rotas exigem o header `Authorization: Bearer <token>` (herdado do
+filtro global da FASE 3).
+
+**O isolamento entre empresas acontece em duas camadas, não só uma:**
+1. Toda consulta já sai filtrada por `CompanyId` (`ICustomerRepository`/`IServiceRepository`),
+   lido do token via `ICurrentUserService` — nunca de um parâmetro que o
+   cliente da API poderia manipular.
+2. Buscar por Id usa `GetByIdForCompanyAsync(id, companyId)` — id sozinho
+   nunca basta. Se você autenticado na Empresa A tentar `GET /api/customers/{id-da-empresa-B}`,
+   a resposta é `404`, não `403` — de propósito, para não confirmar que
+   aquele id existe em outra empresa.
+
+### O que ficou de fora de propósito
+
+- **"Visualizar histórico do cliente"** (orçamentos, serviços, valores) —
+  depende de Orçamentos (FASE 6) e Ordens de Serviço (FASE 8) existirem.
+  Volta como um endpoint dedicado quando essas fases estiverem prontas.
+- Excluir um cliente ou serviço que já tenha orçamentos/ordens de serviço
+  vinculados vai falhar no banco (as FKs são `Restrict`/`SetNull`, configuradas
+  na FASE 2) — mas como essas tabelas ainda não têm dados, não tratamos esse
+  erro especificamente ainda. Isso deve ser revisitado na FASE 6/8.
+
+### Testando no Swagger
+
+Com o token da FASE 3 já autorizado:
+1. `POST /api/customers` com `{ "name": "Cliente Teste", "phone": "11999999999" }`.
+2. `GET /api/customers` — deve listar o cliente criado.
+3. `POST /api/services` com `{ "name": "Troca de óleo", "defaultPrice": 150 }`.
+4. `GET /api/services?status=Active` — deve listar o serviço (status nasce `Active`).
+5. Registre uma segunda empresa (`POST /api/auth/register` com outro e-mail),
+   autorize com o token dela, e tente `GET /api/customers/{id-da-primeira-empresa}`
+   — deve voltar `404`, confirmando o isolamento entre empresas.
 
 ## Arquitetura
 
@@ -176,10 +231,10 @@ Abra `http://localhost:3000`.
 |---|---|---|
 | 1 | Estrutura do projeto e arquitetura | ✅ Validado por você |
 | 2 | Banco de dados e entidades | ✅ Validado por você (SQLite) |
-| 3 | Autenticação (JWT) | ✅ Este commit |
-| 4 | Clientes (CRUD) | Próxima |
-| 5 | Serviços | — |
-| 6 | Orçamentos | — |
+| 3 | Autenticação (JWT) | ✅ Validado por você |
+| 4 | Clientes (CRUD) | ✅ Este commit |
+| 5 | Serviços | ✅ Este commit |
+| 6 | Orçamentos | Próxima |
 | 7 | Geração de PDF | — |
 | 8 | Ordens de serviço | — |
 | 9 | Dashboard | — |
