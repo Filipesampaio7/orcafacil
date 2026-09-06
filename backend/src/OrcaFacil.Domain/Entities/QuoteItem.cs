@@ -22,4 +22,10 @@ public class QuoteItem : BaseEntity
     public decimal UnitPrice { get; set; }
     public decimal DiscountAmount { get; set; }
     public decimal LineTotal { get; set; }
+
+    /// <summary>(Quantidade × Preço unitário) − Desconto do item.</summary>
+    public void Recalculate()
+    {
+        LineTotal = (Quantity * UnitPrice) - DiscountAmount;
+    }
 }

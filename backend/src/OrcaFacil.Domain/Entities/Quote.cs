@@ -33,4 +33,22 @@ public class Quote : BaseEntity
 
     public ICollection<QuoteItem> Items { get; set; } = new List<QuoteItem>();
     public WorkOrder? WorkOrder { get; set; }
+
+    /// <summary>
+    /// Recalcula LineTotal de cada item e os totais do orçamento a partir
+    /// deles. Fica na entidade (não num Service da Application) para não
+    /// haver dois lugares diferentes — criar e editar — calculando isso de
+    /// formas ligeiramente diferentes com o tempo.
+    /// </summary>
+    public void RecalculateTotals()
+    {
+        foreach (var item in Items)
+        {
+            item.Recalculate();
+        }
+
+        Subtotal = Items.Sum(i => i.Quantity * i.UnitPrice);
+        DiscountAmount = Items.Sum(i => i.DiscountAmount);
+        Total = Items.Sum(i => i.LineTotal);
+    }
 }

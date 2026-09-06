@@ -6,11 +6,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OrcaFacil.Api.Middleware;
 using OrcaFacil.Application.DTOs.Customers;
+using OrcaFacil.Application.DTOs.Quotes;
 using OrcaFacil.Application.DTOs.Services;
 using OrcaFacil.Application.Interfaces;
 using OrcaFacil.Application.Services;
 using OrcaFacil.Application.Validators.Auth;
 using OrcaFacil.Application.Validators.Customers;
+using OrcaFacil.Application.Validators.Quotes;
 using OrcaFacil.Application.Validators.Services;
 using FluentValidation;
 using OrcaFacil.Application.DTOs.Auth;
@@ -48,6 +50,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
+builder.Services.AddScoped<IQuoteRepository, QuoteRepository>();
 
 // Autenticação: hashing de senha, geração/leitura de JWT.
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
@@ -56,6 +59,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
+builder.Services.AddScoped<IQuoteService, QuoteService>();
 
 // Validadores do FluentValidation, injetáveis diretamente nos controllers.
 builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();
@@ -64,6 +68,9 @@ builder.Services.AddScoped<IValidator<CreateCustomerDto>, CreateCustomerValidato
 builder.Services.AddScoped<IValidator<UpdateCustomerDto>, UpdateCustomerValidator>();
 builder.Services.AddScoped<IValidator<CreateServiceDto>, CreateServiceValidator>();
 builder.Services.AddScoped<IValidator<UpdateServiceDto>, UpdateServiceValidator>();
+builder.Services.AddScoped<IValidator<CreateQuoteDto>, CreateQuoteValidator>();
+builder.Services.AddScoped<IValidator<UpdateQuoteDto>, UpdateQuoteValidator>();
+builder.Services.AddScoped<IValidator<UpdateQuoteStatusDto>, UpdateQuoteStatusValidator>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -125,6 +125,76 @@ Com o token da FASE 3 já autorizado:
    autorize com o token dela, e tente `GET /api/customers/{id-da-primeira-empresa}`
    — deve voltar `404`, confirmando o isolamento entre empresas.
 
+## FASE 6 — Orçamentos
+
+**Nenhuma migration nova é necessária.** As tabelas `Quotes` e `QuoteItems` já
+existiam desde a `InitialCreate` da FASE 2 — esta fase só adicionou código de
+aplicação (regras de negócio, endpoints), nenhuma mudança de schema.
+
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/api/quotes?status=&customerId=` | Lista orçamentos da empresa (resumo, sem itens) |
+| GET | `/api/quotes/{id}` | Detalhe completo, com itens |
+| POST | `/api/quotes` | Cria orçamento (sempre nasce como `Draft`) |
+| PUT | `/api/quotes/{id}` | Substitui itens/observações/validade — só funciona em `Draft` |
+| PATCH | `/api/quotes/{id}/status` | Muda o status, respeitando a máquina de estados |
+
+**Como montar um item do orçamento** (`POST /api/quotes` e `PUT /api/quotes/{id}`):
+cada item precisa vir de UM dos dois jeitos:
+- `{ "serviceId": "<guid>", "quantity": 2 }` — item do catálogo; nome e preço
+  são copiados do `Service` automaticamente (pode informar `unitPrice` para
+  sobrescrever o preço padrão nesse orçamento específico).
+- `{ "description": "Cabo flexível 2,5mm", "quantity": 10, "unitPrice": 3.5 }`
+  — produto/material avulso, sem cadastro prévio.
+
+**Cálculo automático** (dentro da própria entidade `Quote`, não duplicado em
+nenhum outro lugar): para cada item, `LineTotal = (Quantidade × Preço) − Desconto do item`.
+O orçamento soma isso tudo: `Subtotal` = soma bruta (quantidade × preço, sem
+desconto), `DiscountAmount` = soma dos descontos de cada item, `Total` = soma
+dos `LineTotal`.
+
+**Transição de status** segue a máquina de estados abaixo — tentar pular uma
+etapa (ex.: `Draft` direto para `Approved`) devolve `409 Conflict`:
+
+```
+Draft → Sent → Approved → Cancelled
+              → Rejected
+              → Expired
+Draft → Cancelled
+```
+
+Rascunho (`Draft`) e status finais (`Rejected`, `Expired`, `Cancelled`) não
+aceitam mais nenhuma transição a partir de `Approved`/`Rejected`/etc.
+
+### O que ficou de fora de propósito
+
+- **Transformar orçamento aprovado em ordem de serviço** — é a FASE 8.
+  Por enquanto, `Approved` é só um status; nada é criado automaticamente.
+- **Geração de PDF e mensagem de WhatsApp** — FASE 7.
+- **Expiração automática** — nada muda o status para `Expired` sozinho
+  quando `ValidUntil` passa; por ora essa transição só acontece se alguém
+  chamar `PATCH .../status` manualmente. Um job agendado para isso é uma
+  melhoria natural mais adiante, fora do escopo do MVP.
+
+### Testando no Swagger
+
+1. Crie um cliente (`POST /api/customers`) e um serviço (`POST /api/services`), copie os ids.
+2. `POST /api/quotes`:
+   ```json
+   {
+     "customerId": "<id-do-cliente>",
+     "validUntil": "2026-12-31",
+     "items": [
+       { "serviceId": "<id-do-serviço>", "quantity": 2 },
+       { "description": "Material avulso", "quantity": 1, "unitPrice": 50 }
+     ]
+   }
+   ```
+3. Confira que `subtotal`/`discountAmount`/`total` vieram calculados na resposta.
+4. `PATCH /api/quotes/{id}/status` com `{ "status": "Sent" }` — deve funcionar.
+5. Tente `PATCH .../status` com `{ "status": "Draft" }` de novo — deve voltar `409`.
+6. Tente `PUT /api/quotes/{id}` depois do passo 4 — deve voltar `409` (não editável fora de `Draft`).
+
 ## Arquitetura
 
 ```
@@ -233,9 +303,9 @@ Abra `http://localhost:3000`.
 | 2 | Banco de dados e entidades | ✅ Validado por você (SQLite) |
 | 3 | Autenticação (JWT) | ✅ Validado por você |
 | 4 | Clientes (CRUD) | ✅ Este commit |
-| 5 | Serviços | ✅ Este commit |
-| 6 | Orçamentos | Próxima |
-| 7 | Geração de PDF | — |
+| 5 | Serviços | ✅ Validado por você |
+| 6 | Orçamentos | ✅ Este commit |
+| 7 | Geração de PDF | Próxima |
 | 8 | Ordens de serviço | — |
 | 9 | Dashboard | — |
 | 10 | Configurações da empresa | — |
