@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OrcaFacil.Domain</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Propositalmente sem nenhum PackageReference: o Domain não pode depender
+       de EF Core, ASP.NET ou qualquer biblioteca externa. Isso garante que as
+       entidades são testáveis isoladamente e que trocar de banco de dados no
+       futuro não exige tocar nesta camada. -->
+
+</Project>

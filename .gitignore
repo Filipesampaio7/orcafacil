@@ -1,0 +1,19 @@
+# Build e binários
+bin/
+obj/
+
+# Arquivos de banco local
+*.db
+*.db-journal
+*.sqlite
+
+# Dependências do Node / Next.js
+node_modules/
+.next/
+out/
+
+# Variáveis de ambiente e IDEs
+.env
+.env.local
+.vscode/
+.idea/

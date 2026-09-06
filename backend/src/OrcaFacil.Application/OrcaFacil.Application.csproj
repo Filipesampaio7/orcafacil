@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>OrcaFacil.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- FluentValidation: usado na FASE 4+ para validar DTOs de entrada
+         (ex.: CreateCustomerDto) fora dos controllers. -->
+    <PackageReference Include="FluentValidation" Version="11.9.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OrcaFacil.Domain\OrcaFacil.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

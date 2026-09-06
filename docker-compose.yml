@@ -1,0 +1,20 @@
+# Opcional — não é mais necessário para desenvolvimento local, já que o
+# backend agora usa SQLite (arquivo local, sem servidor de banco). Mantido
+# para quando a virtualização/Docker estiver disponível de novo e for hora
+# de rodar contra PostgreSQL (ex.: antes do deploy em produção, FASE 14).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: orcafacil-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: orcafacil
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_ME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - orcafacil_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  orcafacil_postgres_data:

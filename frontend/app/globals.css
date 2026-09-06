@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mesmos tokens Dark SaaS (preto + roxo) definidos no portfólio, reaplicados
+   aqui para manter consistência visual entre os dois produtos. */
+:root {
+  --bg: 240 10% 4%;
+  --surface: 240 6% 7%;
+  --surface-2: 240 6% 11%;
+  --border: 240 6% 18%;
+  --text: 0 0% 98%;
+  --text-muted: 240 5% 65%;
+  --accent: 258 90% 66%;
+  --accent-soft: 262 83% 58%;
+}
+
+body {
+  background-color: hsl(var(--bg));
+  color: hsl(var(--text));
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid hsl(var(--accent));
+  outline-offset: 3px;
+  border-radius: 4px;
+}
