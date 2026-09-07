@@ -14,4 +14,10 @@ public class WorkOrderItem : BaseEntity
     public decimal Quantity { get; set; } = 1;
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
+
+    /// <summary>Quantidade × Preço unitário — sem desconto, diferente do QuoteItem: a O.S. registra o que será executado, não a negociação comercial.</summary>
+    public void Recalculate()
+    {
+        LineTotal = Quantity * UnitPrice;
+    }
 }

@@ -8,12 +8,14 @@ using OrcaFacil.Api.Middleware;
 using OrcaFacil.Application.DTOs.Customers;
 using OrcaFacil.Application.DTOs.Quotes;
 using OrcaFacil.Application.DTOs.Services;
+using OrcaFacil.Application.DTOs.WorkOrders;
 using OrcaFacil.Application.Interfaces;
 using OrcaFacil.Application.Services;
 using OrcaFacil.Application.Validators.Auth;
 using OrcaFacil.Application.Validators.Customers;
 using OrcaFacil.Application.Validators.Quotes;
 using OrcaFacil.Application.Validators.Services;
+using OrcaFacil.Application.Validators.WorkOrders;
 using FluentValidation;
 using OrcaFacil.Application.DTOs.Auth;
 using OrcaFacil.Infrastructure.Authentication;
@@ -53,6 +55,7 @@ builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 builder.Services.AddScoped<IQuoteRepository, QuoteRepository>();
 builder.Services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
+builder.Services.AddScoped<IWorkOrderRepository, WorkOrderRepository>();
 
 // Autenticação: hashing de senha, geração/leitura de JWT.
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
@@ -63,6 +66,7 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
 builder.Services.AddScoped<IQuoteService, QuoteService>();
 builder.Services.AddScoped<IQuotePdfGenerator, QuestPdfQuoteGenerator>();
+builder.Services.AddScoped<IWorkOrderService, WorkOrderService>();
 
 // Validadores do FluentValidation, injetáveis diretamente nos controllers.
 builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();
@@ -74,6 +78,9 @@ builder.Services.AddScoped<IValidator<UpdateServiceDto>, UpdateServiceValidator>
 builder.Services.AddScoped<IValidator<CreateQuoteDto>, CreateQuoteValidator>();
 builder.Services.AddScoped<IValidator<UpdateQuoteDto>, UpdateQuoteValidator>();
 builder.Services.AddScoped<IValidator<UpdateQuoteStatusDto>, UpdateQuoteStatusValidator>();
+builder.Services.AddScoped<IValidator<CreateWorkOrderDto>, CreateWorkOrderValidator>();
+builder.Services.AddScoped<IValidator<UpdateWorkOrderDto>, UpdateWorkOrderValidator>();
+builder.Services.AddScoped<IValidator<UpdateWorkOrderStatusDto>, UpdateWorkOrderStatusValidator>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -19,6 +19,7 @@ public class QuoteRepository : Repository<Quote>, IQuoteRepository
         _context.Quotes
             .Include(q => q.Customer)
             .Include(q => q.Items)
+            .Include(q => q.WorkOrder)
             .FirstOrDefaultAsync(q => q.Id == id && q.CompanyId == companyId, cancellationToken);
 
     public async Task<IReadOnlyList<Quote>> SearchAsync(

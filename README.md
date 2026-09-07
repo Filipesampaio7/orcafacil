@@ -256,6 +256,63 @@ disponíveis.
 5. Edite o cliente removendo o telefone e repita o passo 4 — `whatsAppLink`
    deve vir `null`.
 
+## FASE 8 — Ordens de Serviço
+
+**Nenhuma migration nova.** `WorkOrder`/`WorkOrderItem` já existiam desde a
+FASE 2 — só código de aplicação novo.
+
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/api/work-orders?status=&customerId=&assignedUserId=` | Lista (resumo) |
+| GET | `/api/work-orders/{id}` | Detalhe completo, com itens |
+| POST | `/api/work-orders` | Cria uma O.S. diretamente, sem passar por orçamento |
+| POST | `/api/work-orders/from-quote/{quoteId}` | Transforma um orçamento **aprovado** em O.S., copiando os itens |
+| PUT | `/api/work-orders/{id}` | Edita responsável/data prevista/observações/itens — só fora de `Completed`/`Cancelled` |
+| PATCH | `/api/work-orders/{id}/status` | Muda o status, respeitando a máquina de estados |
+
+**Duas formas de criar uma O.S.**, porque o enunciado original permite as
+duas: convertendo um orçamento aprovado (`POST .../from-quote/{quoteId}`,
+que falha com `409` se o orçamento não estiver `Approved` ou já tiver sido
+convertido antes) ou criando direto (`POST /api/work-orders`), para quando
+não existe orçamento prévio.
+
+**Responsável (`assignedUserId`)** precisa ser um usuário da mesma empresa —
+validado a cada criação/edição; usuário de outra empresa (ou inexistente)
+devolve `404`, seguindo o mesmo princípio de isolamento das fases anteriores.
+
+**Máquina de estados:**
+
+```
+Awaiting → Scheduled → InProgress → Completed
+Awaiting → InProgress
+Awaiting/Scheduled/InProgress → Cancelled
+```
+
+`Completed` e `Cancelled` são finais — nenhuma transição a partir deles.
+
+### O que ficou de fora de propósito
+
+- **Total não é uma coluna no banco** — é calculado on-the-fly (soma dos
+  `LineTotal` dos itens) toda vez que uma O.S. é lida, então não existe risco
+  de ficar desatualizado, mas também não dá para filtrar/ordenar por ele
+  numa consulta SQL sem calcular primeiro. Se isso virar necessidade real
+  (ex.: relatório de faturamento), aí sim vale adicionar como coluna.
+- **Excluir uma ordem de serviço** — o enunciado original não pede isso para
+  O.S. (diferente de Clientes/Serviços), então não implementei. Avise se
+  precisar.
+- **Desconto do orçamento não é copiado na conversão** — a O.S. registra
+  `UnitPrice` do item tal como estava no orçamento, mas não carrega o
+  `DiscountAmount` daquela negociação. Isso é intencional: a O.S. é sobre
+  execução, não sobre a parte comercial já fechada.
+
+### Testando
+
+1. Aprove um orçamento (`PATCH /api/quotes/{id}/status` com `{ "status": "Sent" }`, depois `{ "status": "Approved" }`).
+2. `POST /api/work-orders/from-quote/{id-do-orçamento}` — confira que os itens vieram copiados.
+3. Tente chamar o mesmo endpoint de novo com o mesmo orçamento — deve voltar `409`.
+4. `PATCH /api/work-orders/{id}/status` com `{ "status": "Scheduled" }`, depois `{ "status": "InProgress" }`, depois `{ "status": "Completed" }`.
+5. Tente `PUT /api/work-orders/{id}` depois de `Completed` — deve voltar `409`.
+
 ## Arquitetura
 
 ```
@@ -366,9 +423,9 @@ Abra `http://localhost:3000`.
 | 4 | Clientes (CRUD) | ✅ Este commit |
 | 5 | Serviços | ✅ Validado por você |
 | 6 | Orçamentos | ✅ Validado por você (46 testes passando) |
-| 7 | Geração de PDF | ✅ Este commit |
-| 8 | Ordens de serviço | Próxima |
-| 9 | Dashboard | — |
+| 7 | Geração de PDF | ✅ Validado por você |
+| 8 | Ordens de serviço | ✅ Este commit |
+| 9 | Dashboard | Próxima |
 | 10 | Configurações da empresa | — |
 | 11 | UX/UI e responsividade | — |
 | 12 | Testes | — |
