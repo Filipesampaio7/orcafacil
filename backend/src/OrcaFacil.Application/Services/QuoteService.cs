@@ -11,6 +11,9 @@ public class QuoteService : IQuoteService
     private readonly IQuoteRepository _quoteRepository;
     private readonly ICustomerRepository _customerRepository;
     private readonly IServiceRepository _serviceRepository;
+    private readonly IRepository<Company> _companyRepository;
+    private readonly ICompanySettingsRepository _companySettingsRepository;
+    private readonly IQuotePdfGenerator _pdfGenerator;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -18,12 +21,18 @@ public class QuoteService : IQuoteService
         IQuoteRepository quoteRepository,
         ICustomerRepository customerRepository,
         IServiceRepository serviceRepository,
+        IRepository<Company> companyRepository,
+        ICompanySettingsRepository companySettingsRepository,
+        IQuotePdfGenerator pdfGenerator,
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork)
     {
         _quoteRepository = quoteRepository;
         _customerRepository = customerRepository;
         _serviceRepository = serviceRepository;
+        _companyRepository = companyRepository;
+        _companySettingsRepository = companySettingsRepository;
+        _pdfGenerator = pdfGenerator;
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
     }
@@ -114,6 +123,42 @@ public class QuoteService : IQuoteService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ToResponseDto(quote);
+    }
+
+    public async Task<byte[]> GeneratePdfAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var quote = await GetOwnedQuoteAsync(id, cancellationToken);
+        var company = await _companyRepository.GetByIdAsync(CompanyId, cancellationToken);
+        var settings = await _companySettingsRepository.GetByCompanyIdAsync(CompanyId, cancellationToken);
+
+        var data = new QuotePdfData(
+            CompanyName: company?.Name ?? string.Empty,
+            CompanyCnpj: settings?.Cnpj,
+            CompanyPhone: settings?.Phone,
+            CompanyEmail: settings?.Email,
+            CompanyAddress: settings?.Address,
+            CompanyLogoPath: settings?.LogoUrl,
+            Number: quote.Number,
+            IssueDate: quote.IssueDate,
+            ValidUntil: quote.ValidUntil,
+            CustomerName: quote.Customer.Name,
+            CustomerPhone: quote.Customer.Phone,
+            CustomerEmail: quote.Customer.Email,
+            CustomerAddress: quote.Customer.Address,
+            Items: quote.Items.Select(i => new QuotePdfItem(i.Description, i.Quantity, i.UnitPrice, i.DiscountAmount, i.LineTotal)).ToList(),
+            Subtotal: quote.Subtotal,
+            DiscountAmount: quote.DiscountAmount,
+            Total: quote.Total,
+            Notes: quote.Notes);
+
+        return _pdfGenerator.Generate(data);
+    }
+
+    public async Task<WhatsAppMessageDto> GenerateWhatsAppMessageAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var quote = await GetOwnedQuoteAsync(id, cancellationToken);
+        return WhatsAppMessageBuilder.Build(
+            quote.Customer.Name, quote.Customer.Phone, quote.Number, quote.Total, quote.ValidUntil);
     }
 
     /// <summary>

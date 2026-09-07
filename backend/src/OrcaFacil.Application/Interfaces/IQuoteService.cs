@@ -11,4 +11,6 @@ public interface IQuoteService
     Task<QuoteResponseDto> CreateAsync(CreateQuoteDto request, CancellationToken cancellationToken = default);
     Task<QuoteResponseDto> UpdateAsync(Guid id, UpdateQuoteDto request, CancellationToken cancellationToken = default);
     Task<QuoteResponseDto> UpdateStatusAsync(Guid id, QuoteStatus newStatus, CancellationToken cancellationToken = default);
+    Task<byte[]> GeneratePdfAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<WhatsAppMessageDto> GenerateWhatsAppMessageAsync(Guid id, CancellationToken cancellationToken = default);
 }

@@ -18,6 +18,7 @@ using FluentValidation;
 using OrcaFacil.Application.DTOs.Auth;
 using OrcaFacil.Infrastructure.Authentication;
 using OrcaFacil.Infrastructure.Data;
+using OrcaFacil.Infrastructure.Pdf;
 using OrcaFacil.Infrastructure.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -51,6 +52,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 builder.Services.AddScoped<IQuoteRepository, QuoteRepository>();
+builder.Services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
 
 // Autenticação: hashing de senha, geração/leitura de JWT.
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
@@ -60,6 +62,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
 builder.Services.AddScoped<IQuoteService, QuoteService>();
+builder.Services.AddScoped<IQuotePdfGenerator, QuestPdfQuoteGenerator>();
 
 // Validadores do FluentValidation, injetáveis diretamente nos controllers.
 builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();

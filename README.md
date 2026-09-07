@@ -23,6 +23,7 @@ desde que este código foi escrito):
 - `FluentValidation` — 11.9.2
 - `Microsoft.AspNetCore.Authentication.JwtBearer` — 8.0.8
 - `System.IdentityModel.Tokens.Jwt` — 7.5.1
+- `QuestPDF` — 2024.3.6 (ver observação de licença na seção FASE 7)
 
 ## FASE 3 — Autenticação
 
@@ -195,6 +196,66 @@ aceitam mais nenhuma transição a partir de `Approved`/`Rejected`/etc.
 5. Tente `PATCH .../status` com `{ "status": "Draft" }` de novo — deve voltar `409`.
 6. Tente `PUT /api/quotes/{id}` depois do passo 4 — deve voltar `409` (não editável fora de `Draft`).
 
+## FASE 7 — PDF e mensagem de WhatsApp
+
+**Nenhuma migration nova.** Esta fase só adiciona geração de arquivo e texto
+a partir de dados que já existiam — nenhuma tabela ou coluna nova.
+
+Biblioteca usada: **QuestPDF**. Duas coisas importantes:
+
+1. **Licença**: a licença Community (grátis) vale para empresas com **menos
+   de US$ 1 milhão de receita bruta anual**. Para o estágio atual do
+   OrçaFácil está tudo certo — mas se o produto crescer de verdade, revise
+   isso antes de continuar usando gratuitamente.
+2. **Risco de build**: este é o pacote com a API mais rica do projeto até
+   agora, e eu não consegui compilar para validar cada método. Se
+   `dotnet build` falhar especificamente em `QuestPdfQuoteGenerator.cs`,
+   comece consultando a documentação oficial (https://www.questpdf.com/) —
+   é provável que seja um nome de método que mudou entre versões, não um
+   erro de lógica.
+
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/api/quotes/{id}/pdf` | Baixa o orçamento em PDF (`application/pdf`) |
+| GET | `/api/quotes/{id}/whatsapp-message` | Devolve `{ message, whatsAppLink }` prontos para copiar/abrir |
+
+**O que entra no PDF**: nome da empresa (+ CNPJ/telefone/e-mail/endereço se
+cadastrados em `CompanySettings`), número e datas do orçamento, dados do
+cliente, tabela de itens, subtotal/desconto/total, observações, um texto de
+condições padrão, e duas linhas de assinatura (empresa/cliente).
+
+**Sobre o logo da empresa**: `CompanySettings.LogoUrl` só é desenhado no PDF
+se apontar para um **arquivo existente no disco do servidor** — ainda não
+existe upload de logo (isso é da FASE 10, "Configurações"). Até lá, o
+cabeçalho do PDF funciona normalmente, só sem imagem.
+
+**Mensagem de WhatsApp**: gerada por uma função pura (`WhatsAppMessageBuilder`,
+testável sem banco), no formato "Olá, [cliente]! Seu orçamento #0012 no valor
+de R$ 350,50 está disponível...". Se o cliente tiver telefone cadastrado, a
+resposta também traz um link `https://wa.me/<telefone>?text=<mensagem>` —
+isso **não é uma integração oficial com a API do WhatsApp**, é só um link que
+abre o WhatsApp do próprio usuário com o texto pré-preenchido, por pedido
+explícito de deixar isso simples por enquanto. A normalização do telefone é
+básica (só remove caracteres não numéricos) — se o número cadastrado não
+tiver o DDI (ex.: 55 do Brasil), o link pode não abrir a conversa certa.
+
+Os botões "Compartilhar" / "Baixar PDF" / "Copiar mensagem" da FASE 7 do
+enunciado original mapeiam assim no frontend (que ainda não existe — isso é
+da FASE 11): "Baixar PDF" chama o primeiro endpoint acima; "Copiar mensagem"
+e "Compartilhar" chamam o segundo e usam `message`/`whatsAppLink` conforme
+disponíveis.
+
+### Testando
+
+1. Garanta que o cliente do orçamento tem telefone cadastrado (para testar o link).
+2. `GET /api/quotes/{id}/pdf` no Swagger — deve baixar um PDF com todos os dados.
+3. Abra o PDF e confira: nome da empresa, dados do cliente, tabela de itens,
+   totais, texto de condições, linhas de assinatura.
+4. `GET /api/quotes/{id}/whatsapp-message` — confira que a mensagem tem os
+   valores certos e que `whatsAppLink` foi preenchido.
+5. Edite o cliente removendo o telefone e repita o passo 4 — `whatsAppLink`
+   deve vir `null`.
+
 ## Arquitetura
 
 ```
@@ -304,9 +365,9 @@ Abra `http://localhost:3000`.
 | 3 | Autenticação (JWT) | ✅ Validado por você |
 | 4 | Clientes (CRUD) | ✅ Este commit |
 | 5 | Serviços | ✅ Validado por você |
-| 6 | Orçamentos | ✅ Este commit |
-| 7 | Geração de PDF | Próxima |
-| 8 | Ordens de serviço | — |
+| 6 | Orçamentos | ✅ Validado por você (46 testes passando) |
+| 7 | Geração de PDF | ✅ Este commit |
+| 8 | Ordens de serviço | Próxima |
 | 9 | Dashboard | — |
 | 10 | Configurações da empresa | — |
 | 11 | UX/UI e responsividade | — |

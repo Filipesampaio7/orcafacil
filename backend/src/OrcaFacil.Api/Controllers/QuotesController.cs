@@ -85,6 +85,21 @@ public class QuotesController : ControllerBase
         return Ok(await _quoteService.UpdateStatusAsync(id, request.Status, cancellationToken));
     }
 
+    /// <summary>Baixa o orçamento em PDF, pronto para enviar ao cliente.</summary>
+    [HttpGet("{id:guid}/pdf")]
+    public async Task<IActionResult> DownloadPdf(Guid id, CancellationToken cancellationToken)
+    {
+        var pdfBytes = await _quoteService.GeneratePdfAsync(id, cancellationToken);
+        return File(pdfBytes, "application/pdf", $"orcamento-{id}.pdf");
+    }
+
+    /// <summary>Gera o texto (e, se o cliente tiver telefone, o link wa.me) para compartilhar o orçamento no WhatsApp.</summary>
+    [HttpGet("{id:guid}/whatsapp-message")]
+    public async Task<ActionResult<WhatsAppMessageDto>> GetWhatsAppMessage(Guid id, CancellationToken cancellationToken)
+    {
+        return Ok(await _quoteService.GenerateWhatsAppMessageAsync(id, cancellationToken));
+    }
+
     private void AddErrorsToModelState(FluentValidation.Results.ValidationResult validation)
     {
         foreach (var error in validation.Errors)
