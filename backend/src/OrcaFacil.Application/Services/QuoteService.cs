@@ -65,6 +65,7 @@ public class QuoteService : IQuoteService
             IssueDate = DateTime.UtcNow,
             ValidUntil = request.ValidUntil,
             Notes = request.Notes,
+            TechnicalObservations = request.TechnicalObservations,
         };
 
         foreach (var itemDto in request.Items)
@@ -94,6 +95,7 @@ public class QuoteService : IQuoteService
 
         quote.ValidUntil = request.ValidUntil;
         quote.Notes = request.Notes;
+        quote.TechnicalObservations = request.TechnicalObservations;
 
         quote.Items.Clear();
         foreach (var itemDto in request.Items)
@@ -149,7 +151,8 @@ public class QuoteService : IQuoteService
             Subtotal: quote.Subtotal,
             DiscountAmount: quote.DiscountAmount,
             Total: quote.Total,
-            Notes: quote.Notes);
+            Notes: quote.Notes,
+            TechnicalObservations: quote.TechnicalObservations);
 
         return _pdfGenerator.Generate(data);
     }
@@ -202,6 +205,7 @@ public class QuoteService : IQuoteService
     private static QuoteResponseDto ToResponseDto(Quote quote) => new(
         quote.Id, quote.Number, quote.CustomerId, quote.Customer.Name,
         quote.Status, quote.IssueDate, quote.ValidUntil, quote.Subtotal, quote.DiscountAmount, quote.Total, quote.Notes,
+        quote.TechnicalObservations,
         quote.Items.Select(i => new QuoteItemResponseDto(
             i.Id, i.ServiceId, i.Description, i.Quantity, i.UnitPrice, i.DiscountAmount, i.LineTotal)).ToList());
 }

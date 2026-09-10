@@ -12,6 +12,7 @@ public class QuoteConfiguration : IEntityTypeConfiguration<Quote>
         builder.Property(q => q.DiscountAmount).HasPrecision(18, 2);
         builder.Property(q => q.Total).HasPrecision(18, 2);
         builder.Property(q => q.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(q => q.TechnicalObservations).HasMaxLength(1000);
 
         // Garante, no nível do banco, que dois orçamentos da mesma empresa
         // nunca dividam o mesmo número visível ao cliente (#0001).

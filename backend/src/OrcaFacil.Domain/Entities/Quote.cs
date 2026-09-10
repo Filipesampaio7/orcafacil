@@ -31,6 +31,15 @@ public class Quote : BaseEntity
 
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// Ressalvas técnicas — diferente de Notes (observações gerais): existe
+    /// especificamente para registrar avisos que protegem a empresa
+    /// juridicamente (ex.: "peça X está desgastada, cliente optou por não
+    /// autorizar a troca agora"). Impresso em destaque no PDF, junto de uma
+    /// declaração de ciência que o cliente assina.
+    /// </summary>
+    public string? TechnicalObservations { get; set; }
+
     public ICollection<QuoteItem> Items { get; set; } = new List<QuoteItem>();
     public WorkOrder? WorkOrder { get; set; }
 

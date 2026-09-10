@@ -25,6 +25,7 @@ public class CreateQuoteValidator : AbstractValidator<CreateQuoteDto>
         RuleFor(x => x.ValidUntil.Date)
             .GreaterThanOrEqualTo(DateTime.UtcNow.Date)
             .WithMessage("A validade não pode ser uma data no passado.");
+        RuleFor(x => x.TechnicalObservations).MaximumLength(1000);
         RuleFor(x => x.Items).NotEmpty().WithMessage("O orçamento precisa de pelo menos um item.");
         RuleForEach(x => x.Items).SetValidator(new QuoteItemInputValidator());
     }
@@ -37,6 +38,7 @@ public class UpdateQuoteValidator : AbstractValidator<UpdateQuoteDto>
         RuleFor(x => x.ValidUntil.Date)
             .GreaterThanOrEqualTo(DateTime.UtcNow.Date)
             .WithMessage("A validade não pode ser uma data no passado.");
+        RuleFor(x => x.TechnicalObservations).MaximumLength(1000);
         RuleFor(x => x.Items).NotEmpty().WithMessage("O orçamento precisa de pelo menos um item.");
         RuleForEach(x => x.Items).SetValidator(new QuoteItemInputValidator());
     }

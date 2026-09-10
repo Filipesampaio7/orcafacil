@@ -22,5 +22,8 @@ public class WorkOrder : BaseEntity
     public DateTime? ScheduledDate { get; set; }
     public string? Notes { get; set; }
 
+    /// <summary>Mesma finalidade da versão em Quote — ver comentário lá.</summary>
+    public string? TechnicalObservations { get; set; }
+
     public ICollection<WorkOrderItem> Items { get; set; } = new List<WorkOrderItem>();
 }

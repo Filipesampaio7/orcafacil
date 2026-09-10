@@ -13,6 +13,9 @@ public class WorkOrderService : IWorkOrderService
     private readonly ICustomerRepository _customerRepository;
     private readonly IServiceRepository _serviceRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IRepository<Company> _companyRepository;
+    private readonly ICompanySettingsRepository _companySettingsRepository;
+    private readonly IWorkOrderPdfGenerator _pdfGenerator;
     private readonly ICurrentUserService _currentUserService;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -22,6 +25,9 @@ public class WorkOrderService : IWorkOrderService
         ICustomerRepository customerRepository,
         IServiceRepository serviceRepository,
         IUserRepository userRepository,
+        IRepository<Company> companyRepository,
+        ICompanySettingsRepository companySettingsRepository,
+        IWorkOrderPdfGenerator pdfGenerator,
         ICurrentUserService currentUserService,
         IUnitOfWork unitOfWork)
     {
@@ -30,6 +36,9 @@ public class WorkOrderService : IWorkOrderService
         _customerRepository = customerRepository;
         _serviceRepository = serviceRepository;
         _userRepository = userRepository;
+        _companyRepository = companyRepository;
+        _companySettingsRepository = companySettingsRepository;
+        _pdfGenerator = pdfGenerator;
         _currentUserService = currentUserService;
         _unitOfWork = unitOfWork;
     }
@@ -64,6 +73,7 @@ public class WorkOrderService : IWorkOrderService
             Status = WorkOrderStatus.Awaiting,
             ScheduledDate = request.ScheduledDate,
             Notes = request.Notes,
+            TechnicalObservations = request.TechnicalObservations,
         };
 
         foreach (var itemDto in request.Items)
@@ -101,6 +111,7 @@ public class WorkOrderService : IWorkOrderService
             Quote = quote,
             Status = WorkOrderStatus.Awaiting,
             Notes = quote.Notes,
+            TechnicalObservations = quote.TechnicalObservations,
         };
 
         // Copia os itens do orçamento como "foto" — igual ao que QuoteItem faz
@@ -141,6 +152,7 @@ public class WorkOrderService : IWorkOrderService
         workOrder.AssignedUser = assignedUser;
         workOrder.ScheduledDate = request.ScheduledDate;
         workOrder.Notes = request.Notes;
+        workOrder.TechnicalObservations = request.TechnicalObservations;
 
         workOrder.Items.Clear();
         foreach (var itemDto in request.Items)
@@ -168,6 +180,37 @@ public class WorkOrderService : IWorkOrderService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ToResponseDto(workOrder);
+    }
+
+    public async Task<byte[]> GeneratePdfAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var workOrder = await GetOwnedWorkOrderAsync(id, cancellationToken);
+        var company = await _companyRepository.GetByIdAsync(CompanyId, cancellationToken);
+        var settings = await _companySettingsRepository.GetByCompanyIdAsync(CompanyId, cancellationToken);
+
+        var data = new WorkOrderPdfData(
+            CompanyName: company?.Name ?? string.Empty,
+            CompanyCnpj: settings?.Cnpj,
+            CompanyPhone: settings?.Phone,
+            CompanyEmail: settings?.Email,
+            CompanyAddress: settings?.Address,
+            CompanyLogoPath: settings?.LogoUrl,
+            Id: workOrder.Id,
+            QuoteNumber: workOrder.Quote?.Number,
+            CreatedAt: workOrder.CreatedAt,
+            ScheduledDate: workOrder.ScheduledDate,
+            Status: workOrder.Status.ToString(),
+            CustomerName: workOrder.Customer.Name,
+            CustomerPhone: workOrder.Customer.Phone,
+            CustomerEmail: workOrder.Customer.Email,
+            CustomerAddress: workOrder.Customer.Address,
+            AssignedUserName: workOrder.AssignedUser?.Name,
+            Items: workOrder.Items.Select(i => new WorkOrderPdfItem(i.Description, i.Quantity, i.UnitPrice, i.LineTotal)).ToList(),
+            Total: workOrder.Items.Sum(i => i.LineTotal),
+            Notes: workOrder.Notes,
+            TechnicalObservations: workOrder.TechnicalObservations);
+
+        return _pdfGenerator.Generate(data);
     }
 
     private async Task<WorkOrderItem> BuildItemAsync(WorkOrderItemInputDto dto, CancellationToken cancellationToken)
@@ -237,6 +280,7 @@ public class WorkOrderService : IWorkOrderService
         workOrder.Status,
         workOrder.ScheduledDate,
         workOrder.Notes,
+        workOrder.TechnicalObservations,
         workOrder.Items.Sum(i => i.LineTotal),
         workOrder.Items.Select(i => new WorkOrderItemResponseDto(
             i.Id, i.ServiceId, i.Description, i.Quantity, i.UnitPrice, i.LineTotal)).ToList());

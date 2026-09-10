@@ -20,11 +20,13 @@ public record CreateQuoteDto(
     Guid CustomerId,
     DateTime ValidUntil,
     string? Notes,
+    string? TechnicalObservations,
     List<QuoteItemInputDto> Items);
 
 public record UpdateQuoteDto(
     DateTime ValidUntil,
     string? Notes,
+    string? TechnicalObservations,
     List<QuoteItemInputDto> Items);
 
 public record UpdateQuoteStatusDto(QuoteStatus Status);
@@ -64,4 +66,5 @@ public record QuoteResponseDto(
     decimal DiscountAmount,
     decimal Total,
     string? Notes,
+    string? TechnicalObservations,
     IReadOnlyList<QuoteItemResponseDto> Items);

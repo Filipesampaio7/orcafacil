@@ -12,4 +12,5 @@ public interface IWorkOrderService
     Task<WorkOrderResponseDto> ConvertFromQuoteAsync(Guid quoteId, CancellationToken cancellationToken = default);
     Task<WorkOrderResponseDto> UpdateAsync(Guid id, UpdateWorkOrderDto request, CancellationToken cancellationToken = default);
     Task<WorkOrderResponseDto> UpdateStatusAsync(Guid id, WorkOrderStatus newStatus, CancellationToken cancellationToken = default);
+    Task<byte[]> GeneratePdfAsync(Guid id, CancellationToken cancellationToken = default);
 }

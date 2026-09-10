@@ -9,6 +9,7 @@ public class WorkOrderConfiguration : IEntityTypeConfiguration<WorkOrder>
     public void Configure(EntityTypeBuilder<WorkOrder> builder)
     {
         builder.Property(w => w.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(w => w.TechnicalObservations).HasMaxLength(1000);
 
         // Acelera o quadro de ordens de serviço por status (FASE 8/9).
         builder.HasIndex(w => new { w.CompanyId, w.Status });

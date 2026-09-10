@@ -29,6 +29,7 @@ public record QuotePdfData(
     decimal Subtotal,
     decimal DiscountAmount,
     decimal Total,
-    string? Notes);
+    string? Notes,
+    string? TechnicalObservations);
 
 public record QuotePdfItem(string Description, decimal Quantity, decimal UnitPrice, decimal DiscountAmount, decimal LineTotal);

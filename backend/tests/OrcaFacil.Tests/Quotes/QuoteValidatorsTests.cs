@@ -48,7 +48,7 @@ public class CreateQuoteValidatorTests
     [Fact]
     public void Validate_SemItens_DeveGerarErro()
     {
-        var request = new CreateQuoteDto(Guid.NewGuid(), DateTime.UtcNow.AddDays(7), null, new List<QuoteItemInputDto>());
+        var request = new CreateQuoteDto(Guid.NewGuid(), DateTime.UtcNow.AddDays(7), null, null, new List<QuoteItemInputDto>());
 
         Assert.False(_validator.Validate(request).IsValid);
     }
@@ -57,7 +57,7 @@ public class CreateQuoteValidatorTests
     public void Validate_ComValidadeNoPassado_DeveGerarErro()
     {
         var items = new List<QuoteItemInputDto> { new(Guid.NewGuid(), null, 1, null, 0) };
-        var request = new CreateQuoteDto(Guid.NewGuid(), DateTime.UtcNow.AddDays(-1), null, items);
+        var request = new CreateQuoteDto(Guid.NewGuid(), DateTime.UtcNow.AddDays(-1), null, null, items);
 
         Assert.False(_validator.Validate(request).IsValid);
     }
@@ -66,8 +66,29 @@ public class CreateQuoteValidatorTests
     public void Validate_ComDadosValidos_DeveSerValido()
     {
         var items = new List<QuoteItemInputDto> { new(Guid.NewGuid(), null, 1, null, 0) };
-        var request = new CreateQuoteDto(Guid.NewGuid(), DateTime.UtcNow.AddDays(7), "Observação", items);
+        var request = new CreateQuoteDto(Guid.NewGuid(), DateTime.UtcNow.AddDays(7), "Observação", null, items);
 
         Assert.True(_validator.Validate(request).IsValid);
+    }
+
+    [Fact]
+    public void Validate_ComRessalvaTecnicaPreenchida_DeveSerValido()
+    {
+        var items = new List<QuoteItemInputDto> { new(Guid.NewGuid(), null, 1, null, 0) };
+        var request = new CreateQuoteDto(
+            Guid.NewGuid(), DateTime.UtcNow.AddDays(7), null,
+            "Peça X apresenta desgaste, cliente optou por não autorizar a troca no momento.", items);
+
+        Assert.True(_validator.Validate(request).IsValid);
+    }
+
+    [Fact]
+    public void Validate_ComRessalvaTecnicaMuitoLonga_DeveGerarErro()
+    {
+        var items = new List<QuoteItemInputDto> { new(Guid.NewGuid(), null, 1, null, 0) };
+        var tooLong = new string('x', 1001);
+        var request = new CreateQuoteDto(Guid.NewGuid(), DateTime.UtcNow.AddDays(7), null, tooLong, items);
+
+        Assert.False(_validator.Validate(request).IsValid);
     }
 }

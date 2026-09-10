@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OrcaFacil.Api.Middleware;
 using OrcaFacil.Application.DTOs.Customers;
+using OrcaFacil.Application.DTOs.Dashboard;
 using OrcaFacil.Application.DTOs.Quotes;
 using OrcaFacil.Application.DTOs.Services;
 using OrcaFacil.Application.DTOs.WorkOrders;
@@ -56,6 +57,7 @@ builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
 builder.Services.AddScoped<IQuoteRepository, QuoteRepository>();
 builder.Services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
 builder.Services.AddScoped<IWorkOrderRepository, WorkOrderRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 
 // Autenticação: hashing de senha, geração/leitura de JWT.
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
@@ -66,7 +68,9 @@ builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
 builder.Services.AddScoped<IQuoteService, QuoteService>();
 builder.Services.AddScoped<IQuotePdfGenerator, QuestPdfQuoteGenerator>();
+builder.Services.AddScoped<IWorkOrderPdfGenerator, QuestPdfWorkOrderGenerator>();
 builder.Services.AddScoped<IWorkOrderService, WorkOrderService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Validadores do FluentValidation, injetáveis diretamente nos controllers.
 builder.Services.AddScoped<IValidator<RegisterRequestDto>, RegisterRequestValidator>();

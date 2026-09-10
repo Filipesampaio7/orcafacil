@@ -6,21 +6,16 @@ using QuestPDF.Infrastructure;
 
 namespace OrcaFacil.Infrastructure.Pdf;
 
-public class QuestPdfQuoteGenerator : IQuotePdfGenerator
+public class QuestPdfWorkOrderGenerator : IWorkOrderPdfGenerator
 {
-    // Mesma razão do WhatsAppMessageBuilder: formatação explícita em pt-BR,
-    // para não depender da cultura do sistema operacional onde a API roda.
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
-    static QuestPdfQuoteGenerator()
+    static QuestPdfWorkOrderGenerator()
     {
-        // Licença Community: gratuita para empresas com menos de US$ 1 milhão
-        // de receita bruta anual. Ver README (seção FASE 7) antes de usar
-        // isto num produto comercial em maior escala.
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    public byte[] Generate(QuotePdfData data)
+    public byte[] Generate(WorkOrderPdfData data)
     {
         var document = Document.Create(container =>
         {
@@ -45,7 +40,7 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
         return document.GeneratePdf();
     }
 
-    private static void ComposeHeader(IContainer container, QuotePdfData data)
+    private static void ComposeHeader(IContainer container, WorkOrderPdfData data)
     {
         container.Row(row =>
         {
@@ -74,10 +69,8 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
                 }
             });
 
-            // Só tenta desenhar o logo se for um arquivo local existente —
-            // não há upload de logo implementado ainda (isso é FASE 10), então
-            // por ora LogoUrl só funciona se apontar para um caminho no disco
-            // do servidor. Sem isso, o cabeçalho segue só com texto.
+            // Mesma limitação do PDF de orçamento: só desenha se for um
+            // arquivo local existente (sem upload de logo até a FASE 10).
             if (!string.IsNullOrWhiteSpace(data.CompanyLogoPath) && File.Exists(data.CompanyLogoPath))
             {
                 row.ConstantItem(80).Image(data.CompanyLogoPath);
@@ -85,19 +78,34 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
         });
     }
 
-    private static void ComposeContent(IContainer container, QuotePdfData data)
+    private static void ComposeContent(IContainer container, WorkOrderPdfData data)
     {
         container.PaddingTop(15).Column(column =>
         {
             column.Spacing(10);
 
-            column.Item().Text($"ORÇAMENTO Nº {data.Number.ToString("D4", PtBr)}").FontSize(14).Bold();
+            column.Item().Text($"ORDEM DE SERVIÇO Nº {data.Id.ToString()[..8].ToUpperInvariant()}").FontSize(14).Bold();
 
             column.Item().Row(row =>
             {
-                row.RelativeItem().Text($"Data de emissão: {data.IssueDate.ToString("dd/MM/yyyy", PtBr)}");
-                row.RelativeItem().AlignRight().Text($"Válido até: {data.ValidUntil.ToString("dd/MM/yyyy", PtBr)}");
+                row.RelativeItem().Text($"Data de abertura: {data.CreatedAt.ToString("dd/MM/yyyy", PtBr)}");
+                row.RelativeItem().AlignRight().Text(
+                    data.ScheduledDate.HasValue
+                        ? $"Data prevista: {data.ScheduledDate.Value.ToString("dd/MM/yyyy", PtBr)}"
+                        : "Data prevista: a definir");
             });
+
+            if (data.QuoteNumber.HasValue)
+            {
+                column.Item().Text($"Gerada a partir do orçamento #{data.QuoteNumber.Value.ToString("D4", PtBr)}").FontSize(9);
+            }
+
+            column.Item().Text($"Status: {data.Status}").Bold();
+
+            if (!string.IsNullOrWhiteSpace(data.AssignedUserName))
+            {
+                column.Item().Text($"Responsável: {data.AssignedUserName}");
+            }
 
             column.Item().BorderBottom(1).PaddingBottom(10).Column(customerColumn =>
             {
@@ -122,12 +130,7 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
 
             column.Item().Element(c => ComposeItemsTable(c, data));
 
-            column.Item().AlignRight().Column(totalsColumn =>
-            {
-                totalsColumn.Item().Text($"Subtotal: R$ {data.Subtotal.ToString("N2", PtBr)}");
-                totalsColumn.Item().Text($"Desconto: R$ {data.DiscountAmount.ToString("N2", PtBr)}");
-                totalsColumn.Item().Text($"Total: R$ {data.Total.ToString("N2", PtBr)}").FontSize(13).Bold();
-            });
+            column.Item().AlignRight().Text($"Total: R$ {data.Total.ToString("N2", PtBr)}").FontSize(13).Bold();
 
             if (!string.IsNullOrWhiteSpace(data.Notes))
             {
@@ -138,10 +141,7 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
                 });
             }
 
-            // Bloco em destaque, separado das observações gerais acima —
-            // ressalvas técnicas existem para proteger a empresa
-            // juridicamente (ex.: peça desgastada cuja troca o cliente não
-            // autorizou), então precisam ser visualmente inconfundíveis.
+            // Mesmo bloco em destaque do PDF de orçamento — ver comentário lá.
             if (!string.IsNullOrWhiteSpace(data.TechnicalObservations))
             {
                 column.Item().Background(Colors.Yellow.Lighten4).Padding(10).Column(obsColumn =>
@@ -150,12 +150,6 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
                     obsColumn.Item().Text(data.TechnicalObservations);
                 });
             }
-
-            column.Item().Text(
-                    "Condições: os valores apresentados estão sujeitos a alteração após a data de validade " +
-                    "informada acima. A aprovação deste orçamento implica concordância com os valores e " +
-                    "condições aqui descritos.")
-                .FontSize(8).Italic();
 
             column.Item().PaddingTop(30).Row(signatureRow =>
             {
@@ -171,9 +165,6 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
                 {
                     c.Item().LineHorizontal(1);
 
-                    // Com ressalvas técnicas, a legenda vira uma declaração de
-                    // ciência — é o que dá valor jurídico à assinatura do
-                    // cliente sobre o que foi ressalvado acima.
                     var clientCaption = !string.IsNullOrWhiteSpace(data.TechnicalObservations)
                         ? "Declaro estar ciente dos serviços realizados e das ressalvas acima descritas."
                         : "Assinatura do Cliente";
@@ -184,15 +175,14 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
         });
     }
 
-    private static void ComposeItemsTable(IContainer container, QuotePdfData data)
+    private static void ComposeItemsTable(IContainer container, WorkOrderPdfData data)
     {
         container.Table(table =>
         {
             table.ColumnsDefinition(columns =>
             {
-                columns.RelativeColumn(4);
+                columns.RelativeColumn(5);
                 columns.RelativeColumn(1);
-                columns.RelativeColumn(2);
                 columns.RelativeColumn(2);
                 columns.RelativeColumn(2);
             });
@@ -202,9 +192,8 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
                 header.Cell().Text("Descrição").Bold();
                 header.Cell().Text("Qtd.").Bold();
                 header.Cell().Text("Preço unit.").Bold();
-                header.Cell().Text("Desconto").Bold();
                 header.Cell().Text("Total").Bold();
-                header.Cell().ColumnSpan(5).PaddingTop(3).BorderBottom(1);
+                header.Cell().ColumnSpan(4).PaddingTop(3).BorderBottom(1);
             });
 
             foreach (var item in data.Items)
@@ -212,7 +201,6 @@ public class QuestPdfQuoteGenerator : IQuotePdfGenerator
                 table.Cell().Text(item.Description);
                 table.Cell().Text(item.Quantity.ToString("0.##", PtBr));
                 table.Cell().Text($"R$ {item.UnitPrice.ToString("N2", PtBr)}");
-                table.Cell().Text($"R$ {item.DiscountAmount.ToString("N2", PtBr)}");
                 table.Cell().Text($"R$ {item.LineTotal.ToString("N2", PtBr)}");
             }
         });

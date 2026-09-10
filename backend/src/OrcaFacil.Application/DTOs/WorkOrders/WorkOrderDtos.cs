@@ -14,12 +14,14 @@ public record CreateWorkOrderDto(
     Guid? AssignedUserId,
     DateTime? ScheduledDate,
     string? Notes,
+    string? TechnicalObservations,
     List<WorkOrderItemInputDto> Items);
 
 public record UpdateWorkOrderDto(
     Guid? AssignedUserId,
     DateTime? ScheduledDate,
     string? Notes,
+    string? TechnicalObservations,
     List<WorkOrderItemInputDto> Items);
 
 public record UpdateWorkOrderStatusDto(WorkOrderStatus Status);
@@ -53,5 +55,6 @@ public record WorkOrderResponseDto(
     WorkOrderStatus Status,
     DateTime? ScheduledDate,
     string? Notes,
+    string? TechnicalObservations,
     decimal Total,
     IReadOnlyList<WorkOrderItemResponseDto> Items);

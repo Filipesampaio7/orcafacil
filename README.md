@@ -313,6 +313,208 @@ Awaiting/Scheduled/InProgress → Cancelled
 4. `PATCH /api/work-orders/{id}/status` com `{ "status": "Scheduled" }`, depois `{ "status": "InProgress" }`, depois `{ "status": "Completed" }`.
 5. Tente `PUT /api/work-orders/{id}` depois de `Completed` — deve voltar `409`.
 
+## FASE 9 — Dashboard e Métricas
+
+**Nenhuma migration nova.** Dashboard é 100% leitura agregada sobre tabelas
+que já existiam — nenhuma entidade ou coluna nova.
+
+| Método | Rota | O quê |
+|---|---|---|
+| GET | `/api/dashboard/summary` | Visão geral: orçamentos totais/pendentes/aprovados, O.S. em andamento/concluídas, faturamento estimado/realizado |
+| GET | `/api/dashboard/revenue?months=` | Série de faturamento mensal (padrão: 6 meses) |
+| GET | `/api/dashboard/quote-conversion?months=` | Contagem por status + taxa de conversão (sem `months`, considera todo o histórico) |
+| GET | `/api/dashboard/service-ranking?take=` | Ranking de serviços por faturamento (padrão: top 10) |
+
+**Sobre o isolamento**: como no resto do sistema, é por **empresa**
+(`CompanyId`, lido do token do usuário logado via `ICurrentUserService`) — um
+usuário nunca vê números de outra empresa, mas todos os usuários da mesma
+empresa veem os mesmos números. Esta é a única fase com um teste de
+**integração** (banco SQLite real, em memória) em vez de só testes puros —
+isolamento entre empresas é uma garantia que só se prova de verdade
+observando o SQL filtrar corretamente, não só a lógica em C#.
+
+### As três métricas que você pediu, e como cada uma foi calculada
+
+**1. Faturamento mensal** (`/revenue`) — dois valores por mês: `realizedRevenue`
+(soma de O.S. **concluídas** naquele mês) e `estimatedRevenue` (soma de
+orçamentos **aprovados** naquele mês — podem nunca virar O.S., ou virar em
+outro mês). Meses sem nenhum dado aparecem com `0`, não somem da lista — sem
+isso, um gráfico de comparação mês a mês ficaria com buracos difíceis de
+interpretar. **Limitação que vale registrar**: não existe um campo
+`CompletedAt`/`ApprovedAt` explícito no banco — uso `UpdatedAt` como proxy
+(confiável porque editar depois de `Completed`/`Approved` já é bloqueado
+pelas regras da FASE 6/8, então `UpdatedAt` reflete o momento real da
+mudança de status). Se um dia for preciso auditar histórico completo de
+mudanças de status, vale adicionar um campo dedicado.
+
+**2. Taxa de conversão de orçamentos** (`/quote-conversion`) — contagem por
+todos os status (`Draft`, `Sent`, `Approved`, `Rejected`, `Expired`,
+`Cancelled`) mais `conversionRate`. A taxa considera só orçamentos **já
+decididos** (aprovados + rejeitados) como denominador — orçamentos ainda em
+rascunho/enviado/expirado/cancelado não entram nela, porque misturá-los
+distorceria a resposta a "dos orçamentos que o cliente decidiu, quantos ele
+aceitou". `months` (opcional) filtra por orçamentos **emitidos** nesse
+período, não por quando foram decididos.
+
+**3. Ranking de serviços** (`/service-ranking`) — cada serviço do catálogo
+aparece com `executionCount` (quantas vezes apareceu em uma O.S. concluída),
+`totalQuantity` (soma das quantidades) e `totalRevenue` (soma do faturamento
+gerado), ordenado por `totalRevenue` decrescente. Só conta itens de O.S.
+**concluídas** e vinculados a um `Service` do catálogo — um item avulso
+(produto/material sem cadastro prévio) não tem "serviço" para ranquear.
+Sobre "Labor/Parts": o schema atual não distingue mão de obra de peças — só
+existe `Service.Category`, que já pode ser usada informalmente para separar
+isso (ex.: categoria "Mão de obra" vs. "Peças") se fizer sentido no seu caso
+de uso. Adicionar essa distinção como campo formal é uma mudança pequena,
+me avise se for necessária.
+
+### Uma decisão de risco técnico que vale explicar
+
+Para agrupar por mês, a forma "correta" seria fazer o banco de dados agrupar
+(`GROUP BY` em ano/mês). Não tenho como testar se o provider SQLite do EF
+Core traduz `DateTime.Year`/`.Month` corretamente dentro de uma consulta sem
+rodar o projeto — e um erro de tradução aí quebraria o endpoint inteiro. Por
+segurança, busco os dados já filtrados por empresa/status/período do banco
+(isso sim é uma tradução simples e segura) e agrupo por mês **em memória**,
+em C# puro. Para o volume de dados de um MVP isso é irrelevante em
+performance; se o volume crescer muito (milhares de O.S. por mês), aí sim
+vale mover a agregação para o banco.
+
+### Testando
+
+1. Com orçamentos e O.S. já criados nas fases anteriores, chame `GET /api/dashboard/summary` e confira os números batendo com o que você criou manualmente.
+2. `GET /api/dashboard/revenue?months=3` — confira que vêm exatamente 3 meses, mesmo que só um tenha dado.
+3. `GET /api/dashboard/quote-conversion` — confira que `conversionRate` bate com aprovados/(aprovados+rejeitados) × 100.
+4. `GET /api/dashboard/service-ranking` — confira que só aparecem serviços de O.S. já `Completed`.
+5. Registre uma segunda empresa, crie um orçamento nela, e confirme que `/summary` da primeira empresa não mudou.
+
+## Correção pós-Fase 9 + Campo de Observações / Ressalvas Técnicas
+
+**1. Bug corrigido**: `MonthlyRevenueBuilder.cs` usava o tipo `MonthlyAmount`
+sem o `using OrcaFacil.Application.Interfaces;` correspondente — erro
+`CS0246` no build. Corrigido.
+
+**2. Novo campo `TechnicalObservations`** em `Quote` e `WorkOrder` — **nova
+migration necessária**:
+
+```bash
+cd backend
+dotnet ef migrations add AddTechnicalObservations \
+  --project src/OrcaFacil.Infrastructure \
+  --startup-project src/OrcaFacil.Api
+
+dotnet ef database update \
+  --project src/OrcaFacil.Infrastructure \
+  --startup-project src/OrcaFacil.Api
+```
+
+**Por que um campo novo, e não reaproveitar `Notes`?** `Notes` já existia
+para observações gerais (ex.: "cliente pediu entrega até sexta").
+`TechnicalObservations` é conceitualmente diferente: existe especificamente
+para registrar ressalvas que protegem a empresa juridicamente (ex.: "peça X
+está desgastada, cliente optou por não autorizar a troca agora"). Misturar
+os dois faria uma ressalva importante se perder no meio de observações
+soltas — por isso é um campo à parte, com tratamento visual próprio no PDF.
+
+**Onde entrou**:
+- `Quote.TechnicalObservations` / `WorkOrder.TechnicalObservations`
+  (`string?`, até 1000 caracteres, mapeado via Fluent API)
+- `CreateQuoteDto`, `UpdateQuoteDto`, `QuoteResponseDto` e os equivalentes de
+  `WorkOrder` — todos com o novo campo
+- Validado com `MaximumLength(1000)` nos validadores de criação/edição de
+  ambos
+- **Conversão de orçamento em O.S.** (`POST /api/work-orders/from-quote/{id}`)
+  copia `TechnicalObservations` do orçamento para a O.S. gerada — faz
+  sentido que a ressalva registrada no orçamento continue visível na O.S.
+  que nasce dele
+
+**No PDF** (orçamento e O.S. — ambos ganharam essa seção): se o campo tiver
+texto, aparece um bloco com fundo amarelo claro, título **"Observações /
+Ressalvas Técnicas:"**, logo depois de observações gerais e antes do texto de
+condições. A legenda da assinatura do cliente muda automaticamente quando
+existe uma ressalva: em vez de "Assinatura do Cliente", aparece **"Declaro
+estar ciente dos serviços realizados e das ressalvas acima descritas."** —
+sem ressalva preenchida, a legenda volta a ser a original.
+
+**PDF de Ordem de Serviço criado do zero** — até esta rodada, só existia
+gerador de PDF para Orçamento (FASE 7). Adicionei um novo (`GET
+/api/work-orders/{id}/pdf`), mesma estrutura e mesmas ressalvas de risco já
+registradas para o PDF de orçamento (API do QuestPDF rica, não testável aqui).
+
+### Testando
+
+1. Rode a migration acima.
+2. Crie um orçamento com `technicalObservations` preenchido.
+3. `GET /api/quotes/{id}/pdf` — confira o bloco amarelo e a legenda de ciência no lugar de "Assinatura do Cliente".
+4. Aprove o orçamento e converta em O.S. (`POST /api/work-orders/from-quote/{id}`) — confira que `technicalObservations` veio junto.
+5. `GET /api/work-orders/{id}/pdf` — confira que o PDF novo também mostra o bloco.
+6. Crie um orçamento **sem** `technicalObservations` e confirme que o bloco não aparece e a legenda volta a ser "Assinatura do Cliente".
+
+## Correção pós-Fase 9 (2) — `GetSummaryAsync` falhando em teste
+
+Um dos 76 testes falhou: `DashboardRepositoryTests.GetSummaryAsync_NaoDeveMisturarDadosDeOutraEmpresa`,
+erro em `ToListAsync()` dentro de `GetSummaryAsync`. A causa provável é o
+padrão `w.Items.Sum(i => i.LineTotal)` **dentro** de um `.Select()` — uma
+agregação sobre coleção de navegação embutida numa projeção, que exige uma
+subquery correlacionada por linha. Eu tinha registrado esse trecho como
+"seguro" num comentário anterior sem conseguir testar de verdade — o erro
+mostrou que essa confiança não era justificada.
+
+**Correção**: reescrevi `GetSummaryAsync` e `GetCompletedWorkOrderRevenueByMonthAsync`
+para nunca agregar uma coleção de navegação dentro de `Select()`. Em vez
+disso, uso `CountAsync`/`SumAsync` direto contra os `DbSet`s com filtro
+(`Where` + agregado, sem projeção aninhada) ou busco direto em
+`WorkOrderItems` (uma linha por item, com `i.WorkOrder.CompanyId`/`i.WorkOrder.Status`
+— navegação simples, não coleção) — o mesmo padrão que `GetServiceRankingAsync`
+já usava com sucesso. `DashboardRepositoryTests.cs` não precisou de nenhuma
+mudança: os testes validam o comportamento do repositório, não como ele
+está implementado por dentro.
+
+**Grau de confiança**: não consigo rodar `dotnet test` aqui para confirmar
+que os 76 testes passam agora — mas a mudança elimina o padrão específico
+apontado pelo erro, sem alterar o resultado esperado de nenhuma consulta
+(são reescritas matematicamente equivalentes, só numa forma mais simples de
+traduzir para SQL).
+
+## Correção pós-Fase 9 (3) — pacote nativo do SQLite faltando no projeto de testes
+
+O mesmo teste continuou falhando depois da correção acima, agora numa linha
+diferente (`SumAsync` em vez de `ToListAsync`) — sinal de que a consulta em
+si nunca foi o problema. A causa real: `OrcaFacil.Tests.csproj` só recebia
+`Microsoft.EntityFrameworkCore.Sqlite` **transitivamente**, via a referência
+a `OrcaFacil.Infrastructure`. O pacote nativo do SQLite (`SQLitePCLRaw`, que
+faz a ponte com a biblioteca C de verdade) nem sempre é copiado para a pasta
+de saída de um projeto quando a referência é só transitiva — e como esse
+pacote só é "usado" de fato na primeira operação real contra o banco, o erro
+aparece ali, mesmo a causa sendo outra.
+
+**Correção**: adicionei `Microsoft.EntityFrameworkCore.Sqlite` como
+referência **direta** em `OrcaFacil.Tests.csproj` (mesma versão, 8.0.8, já
+usada em `Infrastructure` — sem conflito). Nenhuma mudança em
+`DashboardRepositoryTests.cs` ou em `DashboardRepository.cs` foi necessária
+desta vez — o problema nunca esteve no código, estava no `.csproj`.
+
+## Correção pós-Fase 9 (4) — causa raiz real: SQLite não agrega `decimal`
+
+Depois da correção do `.csproj`, o teste continuou falhando — e desta vez
+veio a mensagem de erro exata: `SQLite cannot apply aggregate operator
+'Sum' on expressions of type 'decimal'`. Essa é uma limitação real e
+documentada do provider SQLite do EF Core — ele não sabe traduzir `SUM()`
+sobre uma coluna `decimal` para SQL (outro provider, como PostgreSQL, não
+teria esse problema). Nenhuma das minhas duas hipóteses anteriores
+(subquery correlacionada, pacote nativo faltando) era a causa raiz — as
+duas eram plausíveis e uma delas (o pacote nativo) provavelmente era um
+problema real também, só que não o que estava quebrando *esse* teste
+especificamente.
+
+**Correção**: os dois `SumAsync(x => x.CampoDecimal)` em `GetSummaryAsync`
+viraram "busca só a coluna para memória, depois `.Sum()` em LINQ-to-Objects"
+— mesmo padrão que o resto do arquivo já usava (`GetCompletedWorkOrderRevenueByMonthAsync`,
+`GetApprovedQuoteRevenueByMonthAsync`, `GetServiceRankingAsync` nunca usaram
+`SumAsync`, só `Sum()` depois de um `ToListAsync()` — só o `GetSummaryAsync`
+reescrito na rodada anterior introduziu o problema, tentando ser mais
+"eficiente" com agregação no banco).
+
 ## Arquitetura
 
 ```
@@ -420,13 +622,13 @@ Abra `http://localhost:3000`.
 | 1 | Estrutura do projeto e arquitetura | ✅ Validado por você |
 | 2 | Banco de dados e entidades | ✅ Validado por você (SQLite) |
 | 3 | Autenticação (JWT) | ✅ Validado por você |
-| 4 | Clientes (CRUD) | ✅ Este commit |
+| 4 | Clientes (CRUD) | ✅ Validado por você |
 | 5 | Serviços | ✅ Validado por você |
 | 6 | Orçamentos | ✅ Validado por você (46 testes passando) |
 | 7 | Geração de PDF | ✅ Validado por você |
-| 8 | Ordens de serviço | ✅ Este commit |
-| 9 | Dashboard | Próxima |
-| 10 | Configurações da empresa | — |
+| 8 | Ordens de serviço | ✅ Validado por você (62 testes passando) |
+| 9 | Dashboard | ✅ Este commit |
+| 10 | Configurações da empresa | Próxima |
 | 11 | UX/UI e responsividade | — |
 | 12 | Testes | — |
 | 13 | README e documentação final | — |

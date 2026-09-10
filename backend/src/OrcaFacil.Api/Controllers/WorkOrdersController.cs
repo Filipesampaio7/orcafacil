@@ -98,6 +98,14 @@ public class WorkOrdersController : ControllerBase
         return Ok(await _workOrderService.UpdateStatusAsync(id, request.Status, cancellationToken));
     }
 
+    /// <summary>Baixa a ordem de serviço em PDF.</summary>
+    [HttpGet("{id:guid}/pdf")]
+    public async Task<IActionResult> DownloadPdf(Guid id, CancellationToken cancellationToken)
+    {
+        var pdfBytes = await _workOrderService.GeneratePdfAsync(id, cancellationToken);
+        return File(pdfBytes, "application/pdf", $"ordem-servico-{id}.pdf");
+    }
+
     private void AddErrorsToModelState(FluentValidation.Results.ValidationResult validation)
     {
         foreach (var error in validation.Errors)

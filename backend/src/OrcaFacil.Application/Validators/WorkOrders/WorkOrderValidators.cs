@@ -21,6 +21,7 @@ public class CreateWorkOrderValidator : AbstractValidator<CreateWorkOrderDto>
     public CreateWorkOrderValidator()
     {
         RuleFor(x => x.CustomerId).NotEmpty();
+        RuleFor(x => x.TechnicalObservations).MaximumLength(1000);
         RuleFor(x => x.Items).NotEmpty().WithMessage("A ordem de serviço precisa de pelo menos um item.");
         RuleForEach(x => x.Items).SetValidator(new WorkOrderItemInputValidator());
     }
@@ -30,6 +31,7 @@ public class UpdateWorkOrderValidator : AbstractValidator<UpdateWorkOrderDto>
 {
     public UpdateWorkOrderValidator()
     {
+        RuleFor(x => x.TechnicalObservations).MaximumLength(1000);
         RuleFor(x => x.Items).NotEmpty().WithMessage("A ordem de serviço precisa de pelo menos um item.");
         RuleForEach(x => x.Items).SetValidator(new WorkOrderItemInputValidator());
     }
